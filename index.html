@@ -412,14 +412,24 @@
       responsive: true,
       maintainAspectRatio: false,
       animation: { duration: 300 },
+      layout: { padding: { left: 10, right: 30, top: 10, bottom: 10 } },
       plugins: {
         legend: { labels: { color: '#64748b', font: { family: 'JetBrains Mono', size: 11 } } }
       },
       scales: {
         x: {
           type: 'time',
+          offset: true,
+          bounds: 'ticks',
           time: { unit: 'minute', displayFormats: { minute: 'h:mm a' } },
-          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } },
+          ticks: {
+            color: '#64748b',
+            font: { family: 'JetBrains Mono', size: 10 },
+            autoSkip: true,
+            maxRotation: 0,
+            minRotation: 0,
+            maxTicksLimit: 8,
+          },
           grid: { color: '#1e2d45' }
         },
         y: {
