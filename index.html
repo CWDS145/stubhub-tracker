@@ -463,8 +463,7 @@
       data: {
         datasets: [
           { label: 'Min $', borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] },
-          { label: 'Avg $', borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] },
-          { label: 'Max $', borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] }
+          { label: 'Avg $ (visible)', borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] }
         ]
       },
       options: commonOpts
@@ -527,7 +526,6 @@
 
     chartPrices.data.datasets[0].data = snapshots.map((s, i) => ({ x: times[i], y: s.minPrice }));
     chartPrices.data.datasets[1].data = snapshots.map((s, i) => ({ x: times[i], y: s.avgPrice }));
-    chartPrices.data.datasets[2].data = snapshots.map((s, i) => ({ x: times[i], y: s.maxPrice }));
     chartPrices.update('none');
 
     // Table
