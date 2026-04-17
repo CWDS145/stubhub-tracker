@@ -119,15 +119,9 @@
     width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--green);
-    animation: pulse 2s infinite;
   }
 
-  .pulse.off { background: var(--red); animation: none; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
+  .pulse.off { background: var(--red); }
 
   .kpi-row {
     display: grid;
