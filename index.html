@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StubHub Tracker — Somerset Patriots</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --accent: #22d3ee;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --orange: #fb923c;
+    --yellow: #fbbf24;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header .event-info {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .controls label {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .controls input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    width: 140px;
+  }
+
+  .controls input:focus { outline: none; border-color: var(--accent); }
+
+  button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  button.danger { border-color: var(--red); color: var(--red); }
+  button.danger:hover { background: var(--red); color: var(--bg); }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .pulse {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  .pulse.off { background: var(--red); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .kpi .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .kpi .value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .kpi .delta {
+    font-size: 12px;
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .delta.up { color: var(--green); }
+  .delta.down { color: var(--red); }
+  .delta.flat { color: var(--text-dim); }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .chart-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .chart-card canvas { width: 100% !important; }
+
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  .table-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+  }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .log {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .log .entry { padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .log .entry:last-child { border-bottom: none; }
+  .log .ts { color: var(--accent); }
+  .log .err { color: var(--red); }
+
+  .manual-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+
+  .manual-entry h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  .manual-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .manual-row .field { display: flex; flex-direction: column; gap: 4px; }
+  .manual-row .field label { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+  .manual-row .field input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    width: 100px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>StubHub Activity Tracker</h1>
+    <div class="event-info" id="eventInfo">Reading Fightin Phils @ Somerset Patriots — Fri Apr 17, 6:35 PM</div>
+  </div>
+  <div class="controls">
+    <label>Proxy URL:</label>
+    <input type="text" id="proxyUrl" value="/api/stubhub" style="width:300px">
+    <label>Event ID:</label>
+    <input type="text" id="eventId" value="159160268">
+    <button id="btnFetch" onclick="fetchNow()">⚡ Fetch Now</button>
+    <button id="btnToggle" onclick="togglePolling()">▶ Start Auto</button>
+    <button class="danger" onclick="clearData()">✕ Clear</button>
+    <button onclick="exportCSV()">↓ CSV</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="pulse off" id="pulseIndicator"></div>
+  <span id="statusText">Idle — Click "Fetch Now" or "Start Auto" (5-min intervals)</span>
+  <span style="margin-left:auto" id="snapshotCount">0 snapshots</span>
+</div>
+
+<!-- Manual entry fallback if proxy isn't set up -->
+<div class="manual-entry">
+  <h3>📝 Manual Entry (if proxy unavailable)</h3>
+  <div class="manual-row">
+    <div class="field"><label>Listings</label><input type="number" id="mListings"></div>
+    <div class="field"><label>Min $</label><input type="number" id="mMinPrice"></div>
+    <div class="field"><label>Max $</label><input type="number" id="mMaxPrice"></div>
+    <div class="field"><label>Avg $</label><input type="number" id="mAvgPrice"></div>
+    <div class="field"><label>Tickets</label><input type="number" id="mTickets"></div>
+    <button onclick="addManual()" style="height:32px">+ Add Snapshot</button>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="label">Listings</div>
+    <div class="value" id="kpiListings">—</div>
+    <div class="delta flat" id="kpiListingsDelta"></div>
+  </div>
+  <div class="kpi">
+    <div class="label">Tickets Avail</div>
+    <div class="value" id="kpiTickets">—</div>
+    <div class="delta flat" id="kpiTicketsDelta"></div>
+  </div>
+  <div class="kpi">
+    <div class="label">Min Price</div>
+    <div class="value" id="kpiMin">—</div>
+    <div class="delta flat" id="kpiMinDelta"></div>
+  </div>
+  <div class="kpi">
+    <div class="label">Avg Price</div>
+    <div class="value" id="kpiAvg">—</div>
+    <div class="delta flat" id="kpiAvgDelta"></div>
+  </div>
+  <div class="kpi">
+    <div class="label">Max Price</div>
+    <div class="value" id="kpiMax">—</div>
+    <div class="delta flat" id="kpiMaxDelta"></div>
+  </div>
+  <div class="kpi">
+    <div class="label">Listings Δ</div>
+    <div class="value" id="kpiDelta">—</div>
+    <div class="delta flat" id="kpiDeltaInfo"></div>
+  </div>
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card">
+    <h3>📊 Listings & Tickets Over Time</h3>
+    <canvas id="chartListings" height="220"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>💰 Price Range Over Time</h3>
+    <canvas id="chartPrices" height="220"></canvas>
+  </div>
+</div>
+
+<div class="table-card">
+  <h3>📋 Snapshot History</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Listings</th>
+        <th>Tickets</th>
+        <th>Min $</th>
+        <th>Avg $</th>
+        <th>Max $</th>
+        <th>Δ Listings</th>
+        <th>Source</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<div class="log" id="logPanel">
+  <div class="entry"><span class="ts">[init]</span> Tracker loaded. Event: 159160268</div>
+</div>
+
+<script>
+  let snapshots = JSON.parse(localStorage.getItem('stubhub_snapshots') || '[]');
+  let polling = false;
+  let pollTimer = null;
+  let chartListings = null;
+  let chartPrices = null;
+
+  // Initialize charts
+  function initCharts() {
+    const commonOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { labels: { color: '#64748b', font: { family: 'JetBrains Mono', size: 11 } } }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'minute', displayFormats: { minute: 'h:mm a' } },
+          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } },
+          grid: { color: '#1e2d45' }
+        },
+        y: {
+          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } },
+          grid: { color: '#1e2d45' }
+        }
+      }
+    };
+
+    chartListings = new Chart(document.getElementById('chartListings'), {
+      type: 'line',
+      data: {
+        datasets: [
+          { label: 'Listings', borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.1)', fill: true, tension: 0.3, pointRadius: 4, data: [] },
+          { label: 'Tickets', borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', fill: true, tension: 0.3, pointRadius: 4, yAxisID: 'y1', data: [] }
+        ]
+      },
+      options: {
+        ...commonOpts,
+        scales: {
+          ...commonOpts.scales,
+          y: { ...commonOpts.scales.y, position: 'left', title: { display: true, text: 'Listings', color: '#64748b' } },
+          y1: { position: 'right', ticks: { color: '#a78bfa', font: { family: 'JetBrains Mono', size: 10 } }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Tickets', color: '#a78bfa' } }
+        }
+      }
+    });
+
+    chartPrices = new Chart(document.getElementById('chartPrices'), {
+      type: 'line',
+      data: {
+        datasets: [
+          { label: 'Min $', borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] },
+          { label: 'Avg $', borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] },
+          { label: 'Max $', borderColor: '#f87171', backgroundColor: 'rgba(248,113,113,0.1)', fill: false, tension: 0.3, pointRadius: 4, data: [] }
+        ]
+      },
+      options: commonOpts
+    });
+  }
+
+  function log(msg, isError) {
+    const panel = document.getElementById('logPanel');
+    const ts = new Date().toLocaleTimeString();
+    panel.innerHTML += `<div class="entry"><span class="${isError ? 'err' : 'ts'}">[${ts}]</span> ${msg}</div>`;
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  function save() {
+    localStorage.setItem('stubhub_snapshots', JSON.stringify(snapshots));
+  }
+
+  function addSnapshot(data) {
+    const snap = {
+      time: data.timestamp || new Date().toISOString(),
+      listings: data.totalListings || 0,
+      tickets: data.totalTickets || 0,
+      minPrice: data.minPrice || 0,
+      maxPrice: data.maxPrice || 0,
+      avgPrice: data.avgPrice || 0,
+      source: data.source || 'api'
+    };
+    snapshots.push(snap);
+    save();
+    updateUI();
+    log(`Snapshot #${snapshots.length}: ${snap.listings} listings, $${snap.minPrice}–$${snap.maxPrice}`);
+  }
+
+  function updateUI() {
+    const n = snapshots.length;
+    document.getElementById('snapshotCount').textContent = `${n} snapshot${n !== 1 ? 's' : ''}`;
+
+    if (n === 0) return;
+
+    const curr = snapshots[n - 1];
+    const prev = n > 1 ? snapshots[n - 2] : null;
+
+    // KPIs
+    setKpi('kpiListings', curr.listings, prev?.listings);
+    setKpi('kpiTickets', curr.tickets, prev?.tickets);
+    setKpi('kpiMin', '$' + curr.minPrice, prev ? '$' + prev.minPrice : null, curr.minPrice, prev?.minPrice);
+    setKpi('kpiAvg', '$' + curr.avgPrice, prev ? '$' + prev.avgPrice : null, curr.avgPrice, prev?.avgPrice);
+    setKpi('kpiMax', '$' + curr.maxPrice, prev ? '$' + prev.maxPrice : null, curr.maxPrice, prev?.maxPrice);
+
+    const totalDelta = n > 1 ? curr.listings - snapshots[0].listings : 0;
+    document.getElementById('kpiDelta').textContent = (totalDelta >= 0 ? '' : '') + totalDelta;
+    document.getElementById('kpiDelta').style.color = totalDelta < 0 ? '#34d399' : totalDelta > 0 ? '#f87171' : '#64748b';
+    document.getElementById('kpiDeltaInfo').textContent = 'since start';
+
+    // Charts
+    const times = snapshots.map(s => new Date(s.time));
+    chartListings.data.datasets[0].data = snapshots.map((s, i) => ({ x: times[i], y: s.listings }));
+    chartListings.data.datasets[1].data = snapshots.map((s, i) => ({ x: times[i], y: s.tickets }));
+    chartListings.update('none');
+
+    chartPrices.data.datasets[0].data = snapshots.map((s, i) => ({ x: times[i], y: s.minPrice }));
+    chartPrices.data.datasets[1].data = snapshots.map((s, i) => ({ x: times[i], y: s.avgPrice }));
+    chartPrices.data.datasets[2].data = snapshots.map((s, i) => ({ x: times[i], y: s.maxPrice }));
+    chartPrices.update('none');
+
+    // Table
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    for (let i = n - 1; i >= 0; i--) {
+      const s = snapshots[i];
+      const p = i > 0 ? snapshots[i - 1] : null;
+      const dl = p ? s.listings - p.listings : 0;
+      const dlClass = dl < 0 ? 'down' : dl > 0 ? 'up' : 'flat';
+      const dlText = dl === 0 ? '—' : (dl > 0 ? '+' : '') + dl;
+      tbody.innerHTML += `<tr>
+        <td>${new Date(s.time).toLocaleTimeString()}</td>
+        <td>${s.listings}</td>
+        <td>${s.tickets}</td>
+        <td>$${s.minPrice}</td>
+        <td>$${s.avgPrice}</td>
+        <td>$${s.maxPrice}</td>
+        <td class="delta ${dlClass}">${dlText}</td>
+        <td>${s.source}</td>
+      </tr>`;
+    }
+  }
+
+  function setKpi(id, value, prevDisplay, currNum, prevNum) {
+    document.getElementById(id).textContent = value;
+    const deltaEl = document.getElementById(id + 'Delta');
+    if (!deltaEl) return;
+
+    const c = currNum !== undefined ? currNum : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+    const p = prevNum !== undefined ? prevNum : (prevDisplay != null ? parseFloat(String(prevDisplay).replace(/[^0-9.-]/g, '')) : null);
+
+    if (p == null) { deltaEl.textContent = ''; return; }
+    const d = c - p;
+    deltaEl.textContent = d === 0 ? '—' : (d > 0 ? '▲ +' : '▼ ') + d;
+    deltaEl.className = 'delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat');
+  }
+
+  async function fetchNow() {
+    const proxyUrl = document.getElementById('proxyUrl').value.trim();
+    const eventId = document.getElementById('eventId').value.trim();
+
+    if (!proxyUrl || !eventId) {
+      log('Missing proxy URL or event ID', true);
+      return;
+    }
+
+    document.getElementById('btnFetch').textContent = '⏳ Fetching...';
+    document.getElementById('statusText').textContent = 'Fetching...';
+
+    try {
+      const url = `${proxyUrl}?eventId=${eventId}`;
+      log(`GET ${url}`);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.error && !data.totalListings) {
+        log(`API returned: ${data.error}`, true);
+        log('Use manual entry if proxy is not deployed yet.', true);
+
+        // If raw data came back, try to parse it
+        if (data.raw) {
+          log('Raw data received — check console for structure');
+          console.log('StubHub raw data:', data.raw);
+        }
+        return;
+      }
+
+      addSnapshot(data);
+    } catch (err) {
+      log(`Fetch error: ${err.message}`, true);
+      log('Tip: Deploy api/stubhub.js to your Vercel proxy first, or use manual entry.', true);
+    } finally {
+      document.getElementById('btnFetch').textContent = '⚡ Fetch Now';
+      updateStatus();
+    }
+  }
+
+  function addManual() {
+    const listings = parseInt(document.getElementById('mListings').value) || 0;
+    const minPrice = parseInt(document.getElementById('mMinPrice').value) || 0;
+    const maxPrice = parseInt(document.getElementById('mMaxPrice').value) || 0;
+    const avgPrice = parseInt(document.getElementById('mAvgPrice').value) || 0;
+    const tickets = parseInt(document.getElementById('mTickets').value) || 0;
+
+    if (listings === 0 && minPrice === 0) {
+      log('Enter at least listings or min price', true);
+      return;
+    }
+
+    addSnapshot({
+      timestamp: new Date().toISOString(),
+      totalListings: listings,
+      totalTickets: tickets,
+      minPrice, maxPrice, avgPrice,
+      source: 'manual'
+    });
+
+    // Clear inputs
+    ['mListings', 'mMinPrice', 'mMaxPrice', 'mAvgPrice', 'mTickets'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+  }
+
+  function togglePolling() {
+    polling = !polling;
+    const btn = document.getElementById('btnToggle');
+
+    if (polling) {
+      btn.textContent = '⏸ Stop Auto';
+      btn.classList.add('active');
+      document.getElementById('pulseIndicator').classList.remove('off');
+      fetchNow();
+      pollTimer = setInterval(fetchNow, 5 * 60 * 1000); // 5 minutes
+      log('Auto-polling started (every 5 min)');
+    } else {
+      btn.textContent = '▶ Start Auto';
+      btn.classList.remove('active');
+      document.getElementById('pulseIndicator').classList.add('off');
+      clearInterval(pollTimer);
+      pollTimer = null;
+      log('Auto-polling stopped');
+    }
+    updateStatus();
+  }
+
+  function updateStatus() {
+    const n = snapshots.length;
+    const last = n > 0 ? new Date(snapshots[n - 1].time).toLocaleTimeString() : 'never';
+    const next = polling ? 'in 5 min' : 'paused';
+    document.getElementById('statusText').textContent = `Last: ${last} | Next: ${next}`;
+  }
+
+  function clearData() {
+    if (!confirm('Clear all snapshot data?')) return;
+    snapshots = [];
+    save();
+    updateUI();
+    document.getElementById('tableBody').innerHTML = '';
+    chartListings.data.datasets.forEach(d => d.data = []);
+    chartPrices.data.datasets.forEach(d => d.data = []);
+    chartListings.update();
+    chartPrices.update();
+    ['kpiListings', 'kpiTickets', 'kpiMin', 'kpiAvg', 'kpiMax', 'kpiDelta'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    log('Data cleared');
+  }
+
+  function exportCSV() {
+    if (snapshots.length === 0) { log('No data to export', true); return; }
+    let csv = 'Time,Listings,Tickets,Min$,Avg$,Max$,Source\n';
+    snapshots.forEach(s => {
+      csv += `${s.time},${s.listings},${s.tickets},${s.minPrice},${s.avgPrice},${s.maxPrice},${s.source}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `stubhub_tracker_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    log('CSV exported');
+  }
+
+  // Init
+  initCharts();
+  if (snapshots.length > 0) {
+    updateUI();
+    log(`Restored ${snapshots.length} snapshots from localStorage`);
+  }
+</script>
+</body>
+</html>
