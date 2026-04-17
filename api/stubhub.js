@@ -34,6 +34,13 @@ export default async function handler(req, res) {
         error: "index-data script not found",
         hint: "StubHub page structure may have changed, or bot protection triggered",
         htmlSize: html.length,
+        htmlPreview: html.slice(0, 2000),
+        upstreamHeaders: {
+          server: pageRes.headers.get("server"),
+          cfRay: pageRes.headers.get("cf-ray"),
+          xCache: pageRes.headers.get("x-cache"),
+          contentType: pageRes.headers.get("content-type"),
+        },
       });
     }
 
