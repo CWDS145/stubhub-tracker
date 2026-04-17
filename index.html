@@ -191,7 +191,8 @@
     letter-spacing: 0.5px;
   }
 
-  .chart-card canvas { width: 100% !important; }
+  .chart-wrap { position: relative; height: 240px; width: 100%; }
+  .chart-card canvas { max-width: 100% !important; }
 
   .table-card {
     background: var(--surface);
@@ -368,11 +369,11 @@
 <div class="charts-grid">
   <div class="chart-card">
     <h3>📊 Listings & Tickets Over Time</h3>
-    <canvas id="chartListings" height="220"></canvas>
+    <div class="chart-wrap"><canvas id="chartListings"></canvas></div>
   </div>
   <div class="chart-card">
     <h3>💰 Price Range Over Time</h3>
-    <canvas id="chartPrices" height="220"></canvas>
+    <div class="chart-wrap"><canvas id="chartPrices"></canvas></div>
   </div>
 </div>
 
