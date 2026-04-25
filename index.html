@@ -396,6 +396,27 @@
   </table>
 </div>
 
+<div class="table-card">
+  <h3>🗂️ Past Events Summary</h3>
+  <div style="font-size:12px;color:#888;margin-bottom:6px;">
+    Aggregated from archived snapshots. <strong>Avg $ uses 1.5×IQR outlier trimming</strong> (luxury-suite anomalies removed). Click the Note cell to edit (auto-saves on blur).
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Day</th>
+        <th>Opponent</th>
+        <th>Snapshots</th>
+        <th>Min $</th>
+        <th>Avg $ (trimmed)</th>
+        <th style="min-width:200px;">Note</th>
+      </tr>
+    </thead>
+    <tbody id="summaryBody"></tbody>
+  </table>
+</div>
+
 <div class="log" id="logPanel">
   <div class="entry"><span class="ts">[init]</span> Tracker loaded. Auto-selecting next W/Fr/Sun home game…</div>
 </div>
@@ -739,6 +760,86 @@
       togglePolling(); // starts auto-fetch every 5 min, fires fetchNow() immediately
     }
   });
+
+  // Past Events Summary: load archived events with snapshot stats + notes.
+  // Refreshes on demand whenever a snapshot is added (covers the case where
+  // the active event flips to archived mid-session).
+  function deriveBaseUrl() {
+    return document.getElementById('proxyUrl').value.trim().replace(/\/stubhub\/?$/, '');
+  }
+
+  async function loadPastEventsSummary() {
+    const base = deriveBaseUrl();
+    if (!base) return;
+    try {
+      const res = await fetch(`${base}/summary?days=365`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const events = await res.json();
+      renderSummary(events);
+    } catch (err) {
+      log(`Past events load failed: ${err.message}`, true);
+    }
+  }
+
+  function fmtPrice(v) {
+    if (v == null) return '—';
+    return '$' + Number(v).toFixed(2);
+  }
+
+  function renderSummary(events) {
+    const tbody = document.getElementById('summaryBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (!events.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;padding:12px;">No past events yet — they appear here once events archive.</td></tr>';
+      return;
+    }
+    for (const ev of events) {
+      const tr = document.createElement('tr');
+      const note = ev.notes || '';
+      tr.innerHTML = `
+        <td>${ev.event_date || '—'}</td>
+        <td>${ev.day_of_week || '—'}</td>
+        <td>${(ev.opponent || ev.event_name || '—').replace(/ at Somerset Patriots$/i, '')}</td>
+        <td style="text-align:right;">${ev.snapshot_count || 0}</td>
+        <td style="text-align:right;">${fmtPrice(ev.min_price)}</td>
+        <td style="text-align:right;">${fmtPrice(ev.avg_price_trimmed)}</td>
+        <td><span class="note-cell" contenteditable="true" data-event-id="${ev.event_id}" data-original="${note.replace(/"/g, '&quot;')}" style="display:inline-block;min-width:180px;padding:2px 4px;border-radius:3px;background:rgba(255,255,255,0.05);outline:none;">${note}</span></td>
+      `;
+      tbody.appendChild(tr);
+    }
+    // Wire note-save on blur or Enter.
+    for (const cell of tbody.querySelectorAll('.note-cell')) {
+      cell.addEventListener('blur', async () => {
+        const eid = cell.dataset.eventId;
+        const next = cell.textContent.trim();
+        if (next === cell.dataset.original) return;
+        try {
+          const res = await fetch(`${deriveBaseUrl()}/events/${eid}/note`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: next }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          cell.dataset.original = next;
+          cell.style.background = 'rgba(63,185,80,0.18)';
+          setTimeout(() => { cell.style.background = 'rgba(255,255,255,0.05)'; }, 800);
+          log(`Note saved for event ${eid}: ${next || '(cleared)'}`);
+        } catch (err) {
+          log(`Note save failed for event ${eid}: ${err.message}`, true);
+          cell.style.background = 'rgba(248,81,73,0.25)';
+        }
+      });
+      cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); cell.blur(); }
+        if (e.key === 'Escape') { cell.textContent = cell.dataset.original; cell.blur(); }
+      });
+    }
+  }
+
+  loadPastEventsSummary();
+  // Refresh summary every 10 min so post-archive transitions show up automatically.
+  setInterval(loadPastEventsSummary, 10 * 60 * 1000);
 </script>
 </body>
 </html>
