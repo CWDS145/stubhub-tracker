@@ -300,13 +300,13 @@
 <div class="header">
   <div>
     <h1>StubHub Activity Tracker</h1>
-    <div class="event-info" id="eventInfo">Reading Fightin Phils @ Somerset Patriots — Fri Apr 17, 6:35 PM</div>
+    <div class="event-info" id="eventInfo">Looking up next home game…</div>
   </div>
   <div class="controls">
     <label>Proxy URL:</label>
     <input type="text" id="proxyUrl" value="https://manoai.tail56cd31.ts.net/stubhub" style="width:400px">
     <label>Event ID:</label>
-    <input type="text" id="eventId" value="159160268">
+    <input type="text" id="eventId" value="">
     <button id="btnFetch" onclick="fetchNow()">⚡ Fetch Now</button>
     <button id="btnToggle" onclick="togglePolling()">▶ Start Auto</button>
     <button class="danger" onclick="clearData()">✕ Clear</button>
@@ -397,7 +397,7 @@
 </div>
 
 <div class="log" id="logPanel">
-  <div class="entry"><span class="ts">[init]</span> Tracker loaded. Event: 159160268</div>
+  <div class="entry"><span class="ts">[init]</span> Tracker loaded. Auto-selecting next W/Fr/Sun home game…</div>
 </div>
 
 <script>
@@ -690,12 +690,55 @@
     log('CSV exported');
   }
 
+  // Auto-select the next upcoming home game on a day the user owns tickets
+  // (Wed/Fri/Sun). Backed by /events on the proxy, which reads from the
+  // stubhub-proxy SQLite events table populated by discover.py.
+  const HOME_DOW = 'Wed,Fri,Sun';
+  const HOME_LOOKAHEAD_DAYS = 180;
+
+  async function autoSelectNextHomeGame() {
+    const proxyUrl = document.getElementById('proxyUrl').value.trim();
+    if (!proxyUrl) return null;
+    const eventsUrl = proxyUrl.replace(/\/stubhub\/?$/, '/events')
+      + `?dow=${encodeURIComponent(HOME_DOW)}&days=${HOME_LOOKAHEAD_DAYS}`;
+    log(`Auto-selecting next ${HOME_DOW} home game: GET ${eventsUrl}`);
+    try {
+      const res = await fetch(eventsUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const events = await res.json();
+      if (!Array.isArray(events) || events.length === 0) {
+        log(`No upcoming ${HOME_DOW} home games found in DB. Run discover.py to refresh.`, true);
+        return null;
+      }
+      const next = events[0];
+      document.getElementById('eventId').value = String(next.event_id);
+      const dt = next.event_datetime
+        ? new Date(next.event_datetime).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : `${next.day_of_week} ${next.event_date}`;
+      document.getElementById('eventInfo').textContent = `${next.event_name} — ${dt}`;
+      log(`Selected: ${next.event_name} (id=${next.event_id}, ${dt})`);
+      if (events.length > 1) {
+        log(`(${events.length - 1} more upcoming home game${events.length > 2 ? 's' : ''} after this — change Event ID manually to track another)`);
+      }
+      return next;
+    } catch (err) {
+      log(`Auto-select failed: ${err.message}`, true);
+      return null;
+    }
+  }
+
   // Init
   initCharts();
   if (snapshots.length > 0) {
     updateUI();
     log(`Restored ${snapshots.length} snapshots from localStorage`);
   }
+  // Pick the next upcoming home game and start polling automatically.
+  autoSelectNextHomeGame().then((picked) => {
+    if (picked && !polling) {
+      togglePolling(); // starts auto-fetch every 5 min, fires fetchNow() immediately
+    }
+  });
 </script>
 </body>
 </html>
