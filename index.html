@@ -761,6 +761,56 @@
     }
   });
 
+  // Auto-flip to the next home game when the active one becomes archived.
+  // Without this, a tab open across game-day stays glued to the just-finished
+  // event because autoSelectNextHomeGame only ran once at load. We re-check
+  // /events every 5 min; if our eventId is no longer in the upcoming list,
+  // it got archived — switch to the new first entry, clear stale snapshots,
+  // and refresh the past-events table so the just-archived game appears.
+  // Only fires when the current event isn't in the upcoming list, so manual
+  // tracking of a different event is left alone (until that event archives).
+  async function maybeFlipToNextHomeGame() {
+    const proxyUrl = document.getElementById('proxyUrl').value.trim();
+    if (!proxyUrl) return;
+    const eventsUrl = proxyUrl.replace(/\/stubhub\/?$/, '/events')
+      + `?dow=${encodeURIComponent(HOME_DOW)}&days=${HOME_LOOKAHEAD_DAYS}`;
+    try {
+      const res = await fetch(eventsUrl);
+      if (!res.ok) return;
+      const events = await res.json();
+      if (!Array.isArray(events) || events.length === 0) return;
+      const currentEid = document.getElementById('eventId').value.trim();
+      if (!currentEid) return;
+      const stillUpcoming = events.some((e) => String(e.event_id) === currentEid);
+      if (stillUpcoming) return;
+      const next = events[0];
+      log(`Active event ${currentEid} no longer in upcoming home games (archived). Switching to ${next.event_id} — ${next.event_name}.`);
+      document.getElementById('eventId').value = String(next.event_id);
+      const dt = next.event_datetime
+        ? new Date(next.event_datetime).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : `${next.day_of_week} ${next.event_date}`;
+      document.getElementById('eventInfo').textContent = `${next.event_name} — ${dt}`;
+      snapshots = [];
+      save();
+      const tbody = document.getElementById('tableBody');
+      if (tbody) tbody.innerHTML = '';
+      if (typeof chartListings !== 'undefined' && chartListings) {
+        chartListings.data.datasets.forEach((d) => (d.data = []));
+        chartListings.update();
+      }
+      if (typeof chartPrices !== 'undefined' && chartPrices) {
+        chartPrices.data.datasets.forEach((d) => (d.data = []));
+        chartPrices.update();
+      }
+      updateUI();
+      loadPastEventsSummary();
+      if (polling) fetchNow();
+    } catch (_) {
+      // silent — next cycle retries
+    }
+  }
+  setInterval(maybeFlipToNextHomeGame, 5 * 60 * 1000);
+
   // Past Events Summary: load archived events with snapshot stats + notes.
   // Refreshes on demand whenever a snapshot is added (covers the case where
   // the active event flips to archived mid-session).
